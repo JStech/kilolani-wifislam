@@ -27,9 +27,7 @@ import java.util.ArrayList;
 public class Navigate extends AppCompatActivity {
 
     private final static String TAG="Navigate";
-    private final static int ACCESS_FINE_LOCATION_PERM_REQ = 1001;
-    private final static int ACCESS_COARSE_LOCATION_PERM_REQ = 1002;
-    private final static int WRITE_EXTERNAL_STORAGE_PERM_REQ = 1003;
+    private final static int MULTIPLE_PERM_REQ = 1001;
 
     ListView listView;
     ArrayList<String> status_list;
@@ -42,6 +40,17 @@ public class Navigate extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
+        // Request permissions if needed
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) !=
+                    PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                        MULTIPLE_PERM_REQ);
+            }
+        }
+
+        // Interface: buttons at the bottom to start and stop services
         FloatingActionButton start_button = (FloatingActionButton) findViewById(R.id.start_scan);
         start_button.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -62,28 +71,7 @@ public class Navigate extends AppCompatActivity {
             }
         });
 
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
-                checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) !=
-                        PackageManager.PERMISSION_GRANTED){
-
-            requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                    ACCESS_FINE_LOCATION_PERM_REQ);
-        }
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
-                checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) !=
-                        PackageManager.PERMISSION_GRANTED){
-
-            requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},
-                    ACCESS_COARSE_LOCATION_PERM_REQ);
-        }
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
-                checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
-                        PackageManager.PERMISSION_GRANTED){
-
-            requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                    WRITE_EXTERNAL_STORAGE_PERM_REQ);
-        }
-
+        // Interface: List of messages
         status_list = new ArrayList<>();
         listView = (ListView) findViewById(R.id.status_list);
         final ArrayAdapter<String> adapter = new ArrayAdapter<String>(getBaseContext(),
@@ -105,13 +93,10 @@ public class Navigate extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions,
                                            int[] grantResults) {
-        if (requestCode == ACCESS_FINE_LOCATION_PERM_REQ &&
-                grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            // TODO: What you want to do when it works or maybe .PERMISSION_DENIED if it works better
-        }
-        if (requestCode == ACCESS_COARSE_LOCATION_PERM_REQ &&
-                grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            // TODO: What you want to do when it works or maybe .PERMISSION_DENIED if it works better
+        // Quit if permissions are denied
+        if (requestCode == MULTIPLE_PERM_REQ &&
+                grantResults[0] == PackageManager.PERMISSION_DENIED) {
+            finishAffinity();
         }
     }
 

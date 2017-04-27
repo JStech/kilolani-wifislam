@@ -53,37 +53,29 @@ public class RFScanService extends Service {
     private RFScanRunnable scanRunnable;
 
     private BluetoothAdapter bluetoothAdapter;
-    private WifiManager wifiManager;
-    private List<ScanResult> results;
-    private BroadcastReceiver wifiResultsReceiver;
     private BroadcastReceiver bleResultsReceiver;
-    private PrintWriter pw;
-    private FileOutputStream fos;
+
+    private WifiManager wifiManager;
+    private BroadcastReceiver wifiResultsReceiver;
+    private List<ScanResult> results;
+
+    private LocationManager locationManager;
+    private LocationListener locationListener;
 
     @Override
     public void onCreate() {
-        LocationManager locationManager;
-        Log.v(TAG, "Starting service");
+        super.onCreate();
         sendUpdateToActivity("Starting service");
 
         positions = new ArrayList<Position>(MAX_POSES);
-        try {
-            File file = new File(
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                    "kilolani_log.txt");
-            file.createNewFile();
-            fos = new FileOutputStream(file);
-            pw = new PrintWriter(fos);
-        } catch (Exception e) {
-            Log.e(TAG, e.getLocalizedMessage());
-        }
-
         mapDB = new MapDatabaseHelper(this);
 
-        wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         locationManager = (LocationManager) getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
+        wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         bluetoothAdapter = ((BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE))
                 .getAdapter();
+
+        // wifiResultsReceiver is what kicks off localization
         wifiResultsReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -112,12 +104,10 @@ public class RFScanService extends Service {
                 } else {
                     // TODO: localize using prior positions, map
                 }
-
-                for (ScanResult r : results) {
-                    pw.println(String.format("%d w %s %d", currentTime, r.BSSID, r.level));
-                }
             }
         };
+
+        // not currently using Bluetooth results
         bleResultsReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -126,26 +116,21 @@ public class RFScanService extends Service {
                     int rssi = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI, Short.MIN_VALUE);
                     BluetoothDevice dev = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                     String address = dev.getAddress();
-                    pw.println(String.format("%d b %s %d", System.currentTimeMillis(), dev, rssi));
                 }
             }
         };
 
+        // register wifiResultsReceiver
         registerReceiver(wifiResultsReceiver, new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
-        LocationListener locationListener = new LocationListener() {
+        locationListener = new LocationListener() {
             @Override
             public void onLocationChanged(Location location) {
                 sendUpdateToActivity("Got new location");
-                pw.println(String.format("%d l %f %f %f %s", location.getTime(),
-                        location.getLatitude(), location.getLongitude(), location.getAccuracy(),
-                        location.toString()));
                 last_location = location;
             }
 
             @Override
-            public void onStatusChanged(String provider, int status, Bundle extras) {
-                //Log.v(TAG, String.format("Location status change: %s %d", provider, status));
-            }
+            public void onStatusChanged(String provider, int status, Bundle extras) {}
 
             @Override
             public void onProviderEnabled(String provider) {}
@@ -153,6 +138,8 @@ public class RFScanService extends Service {
             @Override
             public void onProviderDisabled(String provider) {}
         };
+
+        // start location updates
         try {
             locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, RESCAN_PERIOD,
                     0, locationListener);
@@ -161,28 +148,29 @@ public class RFScanService extends Service {
         } catch (SecurityException e) {
             Log.e(TAG, e.getLocalizedMessage());
         }
-        super.onCreate();
 
+        // Thread to set off scans on a heartbeat
         scanThread = new HandlerThread("ScanThread");
         scanThread.start();
         scanHandler = new Handler(scanThread.getLooper());
         scanRunnable = new RFScanRunnable();
-    }
+   }
 
     @Override
     public void onDestroy() {
         // TODO: write remaining positions to map
+
+        // tear it all down
         unregisterReceiver(wifiResultsReceiver);
         unregisterReceiver(bleResultsReceiver);
         scanHandler.removeCallbacks(scanRunnable);
         scanThread.quitSafely();
+        locationManager.removeUpdates(locationListener);
+
         // TODO: remove this code
         FileChannel inChannel = null;
         FileChannel outChannel = null;
         try {
-            pw.flush();
-            pw.close();
-            fos.close();
             inChannel = new FileInputStream("/data/data/net.stechschulte.kilolani/databases/KilolaniMap").getChannel();
             outChannel = new FileOutputStream("/sdcard/KilolaniMap").getChannel();
             inChannel.transferTo(0, inChannel.size(), outChannel);
@@ -196,7 +184,7 @@ public class RFScanService extends Service {
                 if (outChannel != null) outChannel.close();
             } catch (IOException e) {}
         }
-        Log.v(TAG, "Stopping service");
+
         sendUpdateToActivity("Stopping service");
     }
 
@@ -230,6 +218,7 @@ public class RFScanService extends Service {
         }
     }
 
+    // function to update UI
     private void sendUpdateToActivity(String update) {
         Intent intent = new Intent("RFScanUpdate");
         intent.putExtra("Update", update);
