@@ -33,6 +33,7 @@ public class Navigate extends AppCompatActivity {
     ListView listView;
     ArrayList<String> status_list;
     private BroadcastReceiver statusListUpdate;
+    private TcpServer tcpServer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,6 +41,7 @@ public class Navigate extends AppCompatActivity {
         setContentView(R.layout.activity_navigate);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        tcpServer = new TcpServer();
 
         // Request permissions if needed
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -59,7 +61,7 @@ public class Navigate extends AppCompatActivity {
                 Intent scanIntent = new Intent(Navigate.this, RFScanService.class);
                 scanIntent.setAction(RFScanService.ACTION_START_SCAN);
                 startService(scanIntent);
-                AsyncTask.execute(new TcpServer());
+                tcpServer.start();
             }
         });
 
@@ -70,6 +72,7 @@ public class Navigate extends AppCompatActivity {
                 Intent scanIntent = new Intent(Navigate.this, RFScanService.class);
                 scanIntent.setAction(RFScanService.ACTION_STOP_SCAN);
                 stopService(scanIntent);
+                tcpServer.stop();
             }
         });
 

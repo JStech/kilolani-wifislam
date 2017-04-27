@@ -4,6 +4,7 @@ import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
@@ -18,45 +19,44 @@ import static net.stechschulte.kilolani.Constants.tcp_pt;
 
 public class TcpServer implements Runnable {
     final static String TAG="TcpServer";
-    private boolean running = false;
     private ServerSocket serverSocket;
     private Socket client;
     private PrintWriter outgoing;
+    private Thread myThread = null;
 
     @Override
     public void run() {
-        running = true;
         try {
             serverSocket = new ServerSocket(tcp_pt);
             Log.v(TAG, String.format("Server bound at %s",
                     serverSocket.getLocalSocketAddress().toString()));
-            while (running) {
+            while (!myThread.isInterrupted()) {
+                Log.v(TAG, "Here 1");
                 client = serverSocket.accept();
+                Log.v(TAG, "Here 2");
                 outgoing = new PrintWriter(new BufferedWriter(new OutputStreamWriter(
                         client.getOutputStream())), true);
                 BufferedReader incoming = new BufferedReader(new InputStreamReader(
                         client.getInputStream()));
+                Log.v(TAG, "Here 3");
 
                 String message = null;
                 try {
                     message = incoming.readLine();
-                    outgoing.write("You sent: "+message);
-                } catch (Exception e) {
+                    // TODO: process request
+                    outgoing.write("You sent: " + message + "\n");
+                } catch (IOException e) {
                     Log.e(TAG, e.getLocalizedMessage());
                 }
-                Log.v(TAG, message);
+                Log.v(TAG, "Received: "+message);
 
                 outgoing.flush();
                 outgoing.close();
                 client.close();
             }
-        } catch (Exception e) {
+        } catch (IOException e) {
             Log.e(TAG, e.getLocalizedMessage());
         }
-    }
-
-    public void stop() {
-        running = false;
         if (outgoing != null) {
             outgoing.flush();
             outgoing.close();
@@ -64,8 +64,8 @@ public class TcpServer implements Runnable {
         }
 
         try {
-            client.close();
-            serverSocket.close();
+            if (client != null) {client.close();}
+            if (serverSocket != null) {serverSocket.close();}
         } catch (Exception e) {
             Log.e(TAG, e.getLocalizedMessage());
         }
@@ -73,5 +73,24 @@ public class TcpServer implements Runnable {
         Log.v(TAG, "Server done.");
         serverSocket = null;
         client = null;
+    }
+
+    public void start() {
+        if (myThread == null) {
+            myThread = new Thread(this);
+            myThread.start();
+        }
+    }
+
+    public void stop() {
+        Log.v(TAG, "Interrupting server");
+        try {
+            serverSocket.close();
+        } catch (IOException e) {
+            Log.e(TAG, e.getLocalizedMessage());
+        }
+        if (myThread != null) {
+            myThread.interrupt();
+        }
     }
 }
