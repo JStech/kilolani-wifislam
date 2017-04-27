@@ -7,4 +7,5 @@ package net.stechschulte.kilolani;
 public abstract class Constants {
     public static final double meters_per_deg_lat = 111034.605;
     public static final double meters_per_deg_lon = 85393.826;
+    public static final int tcp_pt = 50301;
 }

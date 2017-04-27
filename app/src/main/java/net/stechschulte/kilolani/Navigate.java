@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.content.LocalBroadcastManager;
@@ -58,6 +59,7 @@ public class Navigate extends AppCompatActivity {
                 Intent scanIntent = new Intent(Navigate.this, RFScanService.class);
                 scanIntent.setAction(RFScanService.ACTION_START_SCAN);
                 startService(scanIntent);
+                AsyncTask.execute(new TcpServer());
             }
         });
 
