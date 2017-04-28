@@ -17,12 +17,9 @@ import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
-import static net.stechschulte.kilolani.Constants.PREF_PEERS;
 import static net.stechschulte.kilolani.Constants.tcp_pt;
 
 /**
@@ -124,13 +121,13 @@ public class TcpClient extends IntentService {
         Set<String> peers = sharedPrefs.getPeers();
         if (peers==null) {
             // put our superpeer back, hope it's back up
-            peers = new HashSet<String>();
+            peers = new HashSet<>();
             peers.add("arpg-gpu.cs.colorado.edu");
             sharedPrefs.addPeers(peers);
         }
 
         // construct JSON request
-        JSONObject req = null;
+        JSONObject req;
         try {
             req = new JSONObject().put("req", "FindPeers").put("n", n);
         } catch (JSONException e) {
@@ -138,8 +135,8 @@ public class TcpClient extends IntentService {
             return;
         }
 
-        Set<String> peers_to_add = new HashSet<String>();
-        Set<String> peers_to_del = new HashSet<String>();
+        Set<String> peers_to_add = new HashSet<>();
+        Set<String> peers_to_del = new HashSet<>();
 
         for (String peer : peers) {
             try {
@@ -148,12 +145,9 @@ public class TcpClient extends IntentService {
                     String new_peer = new_peers.getString(i);
                     peers_to_add.add(new_peer);
                 }
-            } catch (JSONException je) {
+            } catch (JSONException | NullPointerException e) {
                 peers_to_del.add(peer);
-                Log.e(TAG, je.getLocalizedMessage());
-            } catch (NullPointerException npe) {
-                peers_to_del.add(peer);
-                Log.e(TAG, npe.getLocalizedMessage());
+                Log.e(TAG, e.getLocalizedMessage());
             }
         }
 
