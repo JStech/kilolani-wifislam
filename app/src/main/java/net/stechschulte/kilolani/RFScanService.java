@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class RFScanService extends Service {
@@ -97,6 +98,7 @@ public class RFScanService extends Service {
                         positions.remove(0);
                     }
                     mapDB.insertPosition(new_position);
+                    TcpClient.startActionSharePositions(context, Arrays.asList(new_position));
                     sendUpdateToActivity("inserted new position");
                     //positions.add(new_position);
                 } else if (last_location==null) {

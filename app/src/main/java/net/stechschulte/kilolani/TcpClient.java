@@ -18,6 +18,8 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static net.stechschulte.kilolani.Constants.tcp_pt;
@@ -31,64 +33,90 @@ import static net.stechschulte.kilolani.Constants.tcp_pt;
  */
 public class TcpClient extends IntentService {
     public static final String TAG = "TcpClient";
-    // TODO: Rename actions, choose action names that describe tasks that this
-    // IntentService can perform, e.g. ACTION_FETCH_NEW_ITEMS
-    private static final String ACTION_FIND_PEERS = "net.stechschulte.kilolani.action.FIND_PEERS";
-    private static final String ACTION_BAZ = "net.stechschulte.kilolani.action.BAZ";
-
-    // TODO: Rename parameters
-    private static final String EXTRA_N = "net.stechschulte.kilolani.extra.N";
-    private static final String EXTRA_PARAM1 = "net.stechschulte.kilolani.extra.PARAM1";
-    private static final String EXTRA_PARAM2 = "net.stechschulte.kilolani.extra.PARAM2";
+    private static final String ACTION_REQUEST = "net.stechschulte.kilolani.action.REQUEST";
+    private static final String EXTRA_REQUEST = "net.stechschulte.kilolani.extra.REQUEST";
 
     public TcpClient() {
         super("TcpClient");
     }
 
-    /**
-     * Starts this service to perform action FindPeers with the given parameters. If
-     * the service is already performing a task this action will be queued.
-     *
-     * @see IntentService
-     */
     public static void startActionFindPeers(Context context, int n) {
-        Intent intent = new Intent(context, TcpClient.class);
-        intent.setAction(ACTION_FIND_PEERS);
-        intent.putExtra(EXTRA_N, n);
-        context.startService(intent);
+        try {
+            JSONObject request = new JSONObject().put("req", "FindPeers").put("n", n);
+            Intent intent = new Intent(context, TcpClient.class);
+            intent.setAction(ACTION_REQUEST);
+            intent.putExtra(EXTRA_REQUEST, request.toString());
+            context.startService(intent);
+        } catch (JSONException jse) {
+            Log.e(TAG, jse.getLocalizedMessage());
+        }
     }
 
-    /**
-     * Starts this service to perform action Baz with the given parameters. If
-     * the service is already performing a task this action will be queued.
-     *
-     * @see IntentService
-     */
-    // TODO: Customize helper method
-    public static void startActionBaz(Context context, String param1, String param2) {
-        Intent intent = new Intent(context, TcpClient.class);
-        intent.setAction(ACTION_BAZ);
-        intent.putExtra(EXTRA_PARAM1, param1);
-        intent.putExtra(EXTRA_PARAM2, param2);
-        context.startService(intent);
+    public static void startActionRequestPositions(Context context, double lat, double lon, float radius) {
+        try {
+            Intent intent = new Intent(context, TcpClient.class);
+            intent.setAction(ACTION_REQUEST);
+            JSONObject request = new JSONObject();
+            request.put("req", "RequestPositions");
+            request.put("lat", lat);
+            request.put("lon", lon);
+            request.put("radius", radius);
+            intent.putExtra(EXTRA_REQUEST, request.toString());
+            Log.v(TAG, request.toString());
+            context.startService(intent);
+        } catch (JSONException jse) {
+            Log.e(TAG, jse.getLocalizedMessage());
+        }
+    }
+
+    public static void startActionSharePositions(Context context, List<Position> positions) {
+        Log.v(TAG, String.format("sharing %d positions", positions.size()));
+        try {
+            JSONObject request = new JSONObject();
+            request.put("req", "SharePositions");
+            JSONArray ja_positions = new JSONArray();
+            for (Position p: positions) {
+                JSONObject jo_p = new JSONObject();
+                jo_p.put("lat", p.getLatitude());
+                jo_p.put("lon", p.getLongitude());
+                jo_p.put("acc", p.getAccuracy());
+                jo_p.put("time", p.getTime());
+                JSONObject jo_s = new JSONObject();
+                for (Map.Entry<String, Integer> obs : p.getWifiObservations().entrySet()) {
+                    jo_s.put(obs.getKey(), obs.getValue());
+                }
+                jo_p.put("signals", jo_s);
+                ja_positions.put(jo_p);
+            }
+            request.put("positions", ja_positions);
+
+            Intent intent = new Intent(context, TcpClient.class);
+            intent.setAction(ACTION_REQUEST);
+            intent.putExtra(EXTRA_REQUEST, request.toString());
+            Log.v(TAG, request.toString());
+            context.startService(intent);
+        } catch (JSONException jse) {
+            Log.e(TAG, jse.getLocalizedMessage());
+        }
     }
 
     @Override
     protected void onHandleIntent(Intent intent) {
         if (intent != null) {
-            final String action = intent.getAction();
-            if (ACTION_FIND_PEERS.equals(action)) {
-                final int n = intent.getIntExtra(EXTRA_N, 3);
-                handleActionFindPeers(n);
-            } else if (ACTION_BAZ.equals(action)) {
-                final String param1 = intent.getStringExtra(EXTRA_PARAM1);
-                final String param2 = intent.getStringExtra(EXTRA_PARAM2);
-                handleActionBaz(param1, param2);
+            final String request = intent.getStringExtra(EXTRA_REQUEST);
+            Set<String> peers = ManageSharedPrefs.getInstance().getPeers();
+
+            for (String peer : peers) {
+                try {
+                    String result = executeRequest(peer, request);
+                } catch (Exception e) {
+                    Log.e(TAG, e.getLocalizedMessage());
+                }
             }
         }
     }
 
-    private JSONObject executeRequest(String address, JSONObject request) {
+    private String executeRequest(String address, String request) {
         try {
             InetAddress addr = InetAddress.getByName(address);
             Socket socket = new Socket();
@@ -97,7 +125,7 @@ public class TcpClient extends IntentService {
                     new OutputStreamWriter(socket.getOutputStream())), true);
             BufferedReader incoming = new BufferedReader(
                     new InputStreamReader(socket.getInputStream()));
-            outgoing.write(request.toString());
+            outgoing.write(request);
             outgoing.flush();
 
             String reply = incoming.readLine();
@@ -105,7 +133,7 @@ public class TcpClient extends IntentService {
             incoming.close();
             outgoing.close();
             socket.close();
-            return new JSONObject(reply);
+            return reply;
         } catch (Exception e) {
             Log.e(TAG, e.getLocalizedMessage());
             return null;
@@ -119,12 +147,6 @@ public class TcpClient extends IntentService {
     private void handleActionFindPeers(int n) {
         ManageSharedPrefs sharedPrefs = ManageSharedPrefs.getInstance();
         Set<String> peers = sharedPrefs.getPeers();
-        if (peers==null) {
-            // put our superpeer back, hope it's back up
-            peers = new HashSet<>();
-            peers.add(Constants.superpeer);
-            sharedPrefs.addPeers(peers);
-        }
 
         // construct JSON request
         JSONObject req;
@@ -140,7 +162,8 @@ public class TcpClient extends IntentService {
 
         for (String peer : peers) {
             try {
-                JSONArray new_peers = executeRequest(peer, req).getJSONArray("result");
+                JSONArray new_peers = new JSONObject(executeRequest(peer, req.toString()))
+                        .getJSONArray("result");
                 for (int i=0; i<new_peers.length(); i++) {
                     String new_peer = new_peers.getString(i);
                     peers_to_add.add(new_peer);
@@ -155,12 +178,7 @@ public class TcpClient extends IntentService {
         sharedPrefs.delPeers(peers_to_del);
     }
 
-    /**
-     * Handle action Baz in the provided background thread with the provided
-     * parameters.
-     */
-    private void handleActionBaz(String param1, String param2) {
-        // TODO: Handle action Baz
-        throw new UnsupportedOperationException("Not yet implemented");
+    private List<Position> handleActionRequest(String request) {
+        return null;
     }
 }

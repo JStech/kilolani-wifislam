@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
 
+import java.util.HashSet;
 import java.util.Set;
 
 /**
@@ -30,7 +31,12 @@ class ManageSharedPrefs {
     }
 
     Set<String> getPeers() {
-        return preferences.getStringSet(PREF_PEERS, null);
+        Set<String> p = preferences.getStringSet(PREF_PEERS, null);
+        if (p==null || p.size()==0) {
+            p = new HashSet<String>();
+            p.add(Constants.superpeer);
+        }
+        return p;
     }
 
     void addPeer(String peer_to_add) {
