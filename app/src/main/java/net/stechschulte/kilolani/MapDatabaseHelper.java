@@ -73,7 +73,6 @@ public class MapDatabaseHelper extends SQLiteOpenHelper {
 
     MapDatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
-        Log.v(TAG, "constructed");
     }
 
     @Override
@@ -83,7 +82,6 @@ public class MapDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL(SQL_CREATE_TABLE_WIFI_OBS);
         db.execSQL(SQL_CREATE_INDEX_LAT);
         db.execSQL(SQL_CREATE_INDEX_LON);
-        Log.v(TAG, "created DB");
     }
 
     @Override
@@ -92,13 +90,11 @@ public class MapDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_WIFI_APS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_WIFI_OBS);
 
-        Log.v(TAG, "upgrading DB");
         onCreate(db);
     }
 
     // insert position with observations into DB
     public void insertPosition(Position position) {
-        Log.v(TAG, "inserting position");
         SQLiteDatabase db = this.getWritableDatabase();
 
         ContentValues values = new ContentValues();
@@ -146,7 +142,6 @@ public class MapDatabaseHelper extends SQLiteOpenHelper {
 
     // get all observations within radius of center
     public ArrayList<Position> getObservationsNear(Position center, float radius) {
-        Log.v(TAG, "getting nearby observations");
         SQLiteDatabase db = this.getWritableDatabase();
         ArrayList<Position> ret = new ArrayList<>();
 

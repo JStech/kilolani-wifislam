@@ -2,6 +2,7 @@ package net.stechschulte.kilolani;
 
 import android.util.Log;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -13,7 +14,14 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
 
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static net.stechschulte.kilolani.Constants.tcp_pt;
 
 /**
@@ -26,19 +34,17 @@ public class TcpServer implements Runnable {
     private Socket client;
     private PrintWriter outgoing;
     private Thread myThread = null;
+    private static final Random prng = new Random();
 
     @Override
     public void run() {
         try {
             serverSocket = new ServerSocket(tcp_pt);
-            Log.v(TAG, String.format("Server bound at %s",
-                    serverSocket.getLocalSocketAddress().toString()));
             while (!myThread.isInterrupted()) {
                 client = serverSocket.accept();
                 String peer_addr = client.getInetAddress().getHostAddress().toString();
                 Log.v(TAG, String.format("Connection from %s", peer_addr));
-
-                // TODO: add peer_addr to SharedPreferences
+                ManageSharedPrefs.getInstance().addPeer(peer_addr);
 
                 outgoing = new PrintWriter(new BufferedWriter(new OutputStreamWriter(
                         client.getOutputStream())), true);
@@ -104,16 +110,32 @@ public class TcpServer implements Runnable {
     }
 
     private JSONObject handleRequest(JSONObject req) throws JSONException {
+        Log.v(TAG, "Handling request");
+        JSONObject ret = null;
         String request = req.getString("req");
         switch (request) {
             case "FindPeers":
                 int n = req.getInt("n");
+                List<String> peers =
+                        new ArrayList<String>(ManageSharedPrefs.getInstance().getPeers());
+                n = min(n, peers.size());
+                Set<Integer> sample = new HashSet<>();
+                while (sample.size() < n) {
+                    sample.add(prng.nextInt(peers.size()));
+                }
+                Integer[] s = sample.toArray(new Integer[sample.size()]);
+                JSONArray ret_peers = new JSONArray();
+                for (int i: sample) {
+                    ret_peers.put(peers.get(s[i]));
+                }
+                ret = new JSONObject();
+                ret.put("result", ret_peers);
                 break;
             case "SharePositions":
                 break;
             case "RequestPositions":
                 break;
         }
-        return null;
+        return ret;
     }
 }
