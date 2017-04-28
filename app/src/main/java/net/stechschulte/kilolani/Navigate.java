@@ -51,7 +51,7 @@ public class Navigate extends AppCompatActivity {
 
         // seed peers with super-peer
         Set<String> h = new HashSet<String>();
-        h.add("arpg-gpu.cs.colorado.edu");
+        h.add(Constants.superpeer);
         sharedPrefs.addPeers(h);
 
         // Request permissions if needed

@@ -122,7 +122,7 @@ public class TcpClient extends IntentService {
         if (peers==null) {
             // put our superpeer back, hope it's back up
             peers = new HashSet<>();
-            peers.add("arpg-gpu.cs.colorado.edu");
+            peers.add(Constants.superpeer);
             sharedPrefs.addPeers(peers);
         }
 
