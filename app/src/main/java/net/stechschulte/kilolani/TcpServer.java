@@ -2,6 +2,9 @@ package net.stechschulte.kilolani;
 
 import android.util.Log;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -32,6 +35,11 @@ public class TcpServer implements Runnable {
                     serverSocket.getLocalSocketAddress().toString()));
             while (!myThread.isInterrupted()) {
                 client = serverSocket.accept();
+                String peer_addr = client.getInetAddress().getHostAddress().toString();
+                Log.v(TAG, String.format("Connection from %s", peer_addr));
+
+                // TODO: add peer_addr to SharedPreferences
+
                 outgoing = new PrintWriter(new BufferedWriter(new OutputStreamWriter(
                         client.getOutputStream())), true);
                 BufferedReader incoming = new BufferedReader(new InputStreamReader(
@@ -40,10 +48,14 @@ public class TcpServer implements Runnable {
                 String message = null;
                 try {
                     message = incoming.readLine();
-                    // TODO: process request
-                    outgoing.write("You sent: " + message + "\n");
-                } catch (IOException e) {
-                    Log.e(TAG, e.getLocalizedMessage());
+                    JSONObject req = new JSONObject(message);
+                    outgoing.write(handleRequest(req).toString()+"\n");
+                } catch (IOException ioe) {
+                    Log.e(TAG, ioe.getLocalizedMessage());
+                } catch (JSONException jse) {
+                    Log.e(TAG, jse.getLocalizedMessage());
+                } catch (NullPointerException npe) {
+                    Log.e(TAG, "Bad request? "+npe.getLocalizedMessage());
                 }
                 Log.v(TAG, "Received: "+message);
 
@@ -89,5 +101,19 @@ public class TcpServer implements Runnable {
         if (myThread != null) {
             myThread.interrupt();
         }
+    }
+
+    private JSONObject handleRequest(JSONObject req) throws JSONException {
+        String request = req.getString("req");
+        switch (request) {
+            case "FindPeers":
+                int n = req.getInt("n");
+                break;
+            case "SharePositions":
+                break;
+            case "RequestPositions":
+                break;
+        }
+        return null;
     }
 }

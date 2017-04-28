@@ -3,10 +3,9 @@ package net.stechschulte.kilolani;
 import android.app.IntentService;
 import android.content.Intent;
 import android.content.Context;
-import android.content.SharedPreferences;
-import android.preference.PreferenceManager;
 import android.util.Log;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -19,6 +18,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -91,46 +91,74 @@ public class TcpClient extends IntentService {
         }
     }
 
+    private JSONObject executeRequest(String address, JSONObject request) {
+        try {
+            InetAddress addr = InetAddress.getByName(address);
+            Socket socket = new Socket();
+            socket.connect(new InetSocketAddress(addr, tcp_pt), 500);
+            PrintWriter outgoing = new PrintWriter(new BufferedWriter(
+                    new OutputStreamWriter(socket.getOutputStream())), true);
+            BufferedReader incoming = new BufferedReader(
+                    new InputStreamReader(socket.getInputStream()));
+            outgoing.write(request.toString());
+            outgoing.flush();
+
+            String reply = incoming.readLine();
+            Log.v(TAG, "Received: "+reply);
+            incoming.close();
+            outgoing.close();
+            socket.close();
+            return new JSONObject(reply);
+        } catch (Exception e) {
+            Log.e(TAG, e.getLocalizedMessage());
+            return null;
+        }
+    }
+
     /**
      * Handle action FindPeers in the provided background thread with the provided
      * parameters.
      */
     private void handleActionFindPeers(int n) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        Set<String> peers = prefs.getStringSet(PREF_PEERS, null);
+        ManageSharedPrefs sharedPrefs = ManageSharedPrefs.getInstance();
+        Set<String> peers = sharedPrefs.getPeers();
         if (peers==null) {
-            Log.e(TAG, "I am lost and alone in the world.");
-            return;
+            // put our superpeer back, hope it's back up
+            peers = new HashSet<String>();
+            peers.add("arpg-gpu.cs.colorado.edu");
+            sharedPrefs.addPeers(peers);
         }
+
         // construct JSON request
-        String json = "";
+        JSONObject req = null;
         try {
-            json = new JSONObject().put("req", "FindPeers").put("n", n).toString();
+            req = new JSONObject().put("req", "FindPeers").put("n", n);
         } catch (JSONException e) {
             Log.e(TAG, "Error creating JSON (this shouldn't happen)");
+            return;
         }
+
+        Set<String> peers_to_add = new HashSet<String>();
+        Set<String> peers_to_del = new HashSet<String>();
 
         for (String peer : peers) {
             try {
-                InetAddress addr = InetAddress.getByName(peer);
-                Socket socket = new Socket();
-                socket.connect(new InetSocketAddress(addr, tcp_pt), 500);
-                PrintWriter outgoing = new PrintWriter(new BufferedWriter(
-                        new OutputStreamWriter(socket.getOutputStream())), true);
-                BufferedReader incoming = new BufferedReader(
-                        new InputStreamReader(socket.getInputStream()));
-                outgoing.write(json);
-                outgoing.flush();
-
-                String reply = incoming.readLine();
-                Log.v(TAG, "Received: "+reply);
-                incoming.close();
-                outgoing.close();
-                socket.close();
-            } catch (Exception e) {
-                Log.e(TAG, e.getLocalizedMessage());
+                JSONArray new_peers = executeRequest(peer, req).getJSONArray("result");
+                for (int i=0; i<new_peers.length(); i++) {
+                    String new_peer = new_peers.getString(i);
+                    peers_to_add.add(new_peer);
+                }
+            } catch (JSONException je) {
+                peers_to_del.add(peer);
+                Log.e(TAG, je.getLocalizedMessage());
+            } catch (NullPointerException npe) {
+                peers_to_del.add(peer);
+                Log.e(TAG, npe.getLocalizedMessage());
             }
         }
+
+        sharedPrefs.addPeers(peers_to_add);
+        sharedPrefs.delPeers(peers_to_del);
     }
 
     /**

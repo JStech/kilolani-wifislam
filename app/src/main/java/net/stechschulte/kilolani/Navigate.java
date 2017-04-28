@@ -6,7 +6,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -29,12 +28,11 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
-import static net.stechschulte.kilolani.Constants.PREF_PEERS;
-
 public class Navigate extends AppCompatActivity {
 
     private final static String TAG="Navigate";
     private final static int MULTIPLE_PERM_REQ = 1001;
+    private ManageSharedPrefs sharedPrefs;
 
     ListView listView;
     ArrayList<String> status_list;
@@ -48,14 +46,13 @@ public class Navigate extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         tcpServer = new TcpServer();
+        sharedPrefs = ManageSharedPrefs.getInstance();
+        sharedPrefs.Initialize(this);
 
         // seed peers with super-peer
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(Navigate.this);
-        Set<String> h = prefs.getStringSet(PREF_PEERS, new HashSet<String>());
+        Set<String> h = new HashSet<String>();
         h.add("arpg-gpu.cs.colorado.edu");
-        SharedPreferences.Editor editor = prefs.edit();
-        editor.putStringSet(PREF_PEERS, h);
-        editor.commit();
+        sharedPrefs.addPeers(h);
 
         // Request permissions if needed
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
