@@ -31,14 +31,11 @@ public class TcpServer implements Runnable {
             Log.v(TAG, String.format("Server bound at %s",
                     serverSocket.getLocalSocketAddress().toString()));
             while (!myThread.isInterrupted()) {
-                Log.v(TAG, "Here 1");
                 client = serverSocket.accept();
-                Log.v(TAG, "Here 2");
                 outgoing = new PrintWriter(new BufferedWriter(new OutputStreamWriter(
                         client.getOutputStream())), true);
                 BufferedReader incoming = new BufferedReader(new InputStreamReader(
                         client.getInputStream()));
-                Log.v(TAG, "Here 3");
 
                 String message = null;
                 try {
@@ -85,7 +82,7 @@ public class TcpServer implements Runnable {
     public void stop() {
         Log.v(TAG, "Interrupting server");
         try {
-            serverSocket.close();
+            if (serverSocket != null) {serverSocket.close();}
         } catch (IOException e) {
             Log.e(TAG, e.getLocalizedMessage());
         }

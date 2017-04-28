@@ -6,10 +6,12 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 import android.widget.ArrayAdapter;
@@ -24,6 +26,10 @@ import android.view.Menu;
 import android.view.MenuItem;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+
+import static net.stechschulte.kilolani.Constants.PREF_PEERS;
 
 public class Navigate extends AppCompatActivity {
 
@@ -42,6 +48,14 @@ public class Navigate extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         tcpServer = new TcpServer();
+
+        // seed peers with super-peer
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(Navigate.this);
+        Set<String> h = prefs.getStringSet(PREF_PEERS, new HashSet<String>());
+        h.add("arpg-gpu.cs.colorado.edu");
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putStringSet(PREF_PEERS, h);
+        editor.commit();
 
         // Request permissions if needed
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -62,6 +76,8 @@ public class Navigate extends AppCompatActivity {
                 scanIntent.setAction(RFScanService.ACTION_START_SCAN);
                 startService(scanIntent);
                 tcpServer.start();
+
+                TcpClient.startActionFindPeers(Navigate.this, 2);
             }
         });
 
