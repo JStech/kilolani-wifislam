@@ -140,9 +140,39 @@ public class MapDatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
+    // find number of positions within radius of center
+    public int countObservationsNear(Position center, float radius) {
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        double lat_min = center.getLatitude() - radius/meters_per_deg_lat;
+        double lat_max = center.getLatitude() + radius/meters_per_deg_lat;
+        double lon_min = center.getLongitude() - radius/meters_per_deg_lon;
+        double lon_max = center.getLongitude() + radius/meters_per_deg_lon;
+
+        String sql_query = "SELECT COUNT(*) FROM " + TABLE_POSITIONS + " JOIN " + TABLE_WIFI_OBS +
+                " ON " + TABLE_POSITIONS + "." + COL_ID + "=" + TABLE_WIFI_OBS + "." + COL_POS_ID +
+                " JOIN " + TABLE_WIFI_APS +
+                " ON " + TABLE_WIFI_APS + "." + COL_ID + "=" + TABLE_WIFI_OBS + "." + COL_AP_ID +
+                " WHERE " +
+                "(" + TABLE_POSITIONS + "." + COL_LAT + ">= ?" + ") AND " +
+                "(" + TABLE_POSITIONS + "." + COL_LAT + "<= ?" + ") AND " +
+                "(" + TABLE_POSITIONS + "." + COL_LON + ">= ?" + ") AND " +
+                "(" + TABLE_POSITIONS + "." + COL_LON + "<= ?" + ") " +
+                "ORDER BY " + TABLE_POSITIONS + "." + COL_ID;
+
+        Cursor c = db.rawQuery(sql_query, new String[]{Double.toString(lat_min), Double.toString(lat_max),
+                Double.toString(lon_min), Double.toString(lon_max)});
+
+        c.moveToFirst();
+        int ret = c.getInt(0);
+        c.close();
+
+        return 0;
+    }
+
     // get all observations within radius of center
     public ArrayList<Position> getObservationsNear(Position center, float radius) {
-        SQLiteDatabase db = this.getWritableDatabase();
+        SQLiteDatabase db = this.getReadableDatabase();
         ArrayList<Position> ret = new ArrayList<>();
 
         double lat_min = center.getLatitude() - radius/meters_per_deg_lat;

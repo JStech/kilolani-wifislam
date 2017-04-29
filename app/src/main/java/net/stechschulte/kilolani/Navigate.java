@@ -73,8 +73,6 @@ public class Navigate extends AppCompatActivity {
                 scanIntent.setAction(RFScanService.ACTION_START_SCAN);
                 startService(scanIntent);
                 tcpServer.start();
-
-                TcpClient.startActionFindPeers(Navigate.this, 2);
             }
         });
 

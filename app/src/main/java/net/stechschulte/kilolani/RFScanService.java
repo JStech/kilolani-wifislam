@@ -34,10 +34,14 @@ import java.util.List;
 
 public class RFScanService extends Service {
     protected static final int RESCAN_PERIOD = 2000;
-    private static final int MAX_POSES = 1000;
+    private static final int MAX_POSITIONS = 300;
+    private static final int DESIRED_NUM_PEERS = 3;
+    private static final int DESIRED_NUM_POSITIONS = 10;
     private Location last_location = null;
+    private Position last_position = null;
     private ArrayList<Position> positions;
     private MapDatabaseHelper mapDB;
+    private Context context;
 
     public class RFScanBinder extends Binder {
         RFScanService getService() {
@@ -67,8 +71,9 @@ public class RFScanService extends Service {
     public void onCreate() {
         super.onCreate();
         sendUpdateToActivity("Starting service");
+        context = this.getApplicationContext();
 
-        positions = new ArrayList<Position>(MAX_POSES);
+        positions = new ArrayList<Position>(MAX_POSITIONS);
         mapDB = new MapDatabaseHelper(this);
 
         locationManager = (LocationManager) getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
@@ -94,7 +99,7 @@ public class RFScanService extends Service {
                     for (ScanResult r : results) {
                         new_position.addObservation(r.BSSID, r.level);
                     }
-                    while (positions.size() >= MAX_POSES) {
+                    while (positions.size() >= MAX_POSITIONS) {
                         positions.remove(0);
                     }
                     mapDB.insertPosition(new_position);
@@ -147,8 +152,8 @@ public class RFScanService extends Service {
                     0, locationListener);
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, RESCAN_PERIOD,
                     0, locationListener);
-        } catch (SecurityException e) {
-            Log.e(TAG, e.getLocalizedMessage());
+        } catch (SecurityException se) {
+            Log.e(TAG, se.getLocalizedMessage());
         }
 
         // Thread to set off scans on a heartbeat
@@ -215,6 +220,18 @@ public class RFScanService extends Service {
             }
             wifiManager.startScan();
             bluetoothAdapter.startDiscovery();
+
+            // check that we have enough peers
+            if (ManageSharedPrefs.getInstance().getPeers().size() < DESIRED_NUM_PEERS) {
+                TcpClient.startActionFindPeers(context, 2);
+            }
+
+            // check if we have enough positions in the area (if we know where we are to begin with)
+            float radius = (float)(3*Constants.tau + 3*Constants.sigma_walk);
+            if (last_position!=null &&
+                    mapDB.countObservationsNear(last_position, radius)<DESIRED_NUM_POSITIONS) {
+                TcpClient.startActionRequestPositions(context, last_position, radius);
+            }
 
             scanHandler.postDelayed(this, RESCAN_PERIOD);
         }
