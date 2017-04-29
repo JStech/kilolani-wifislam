@@ -125,7 +125,7 @@ public class TcpClient extends IntentService {
                     new OutputStreamWriter(socket.getOutputStream())), true);
             BufferedReader incoming = new BufferedReader(
                     new InputStreamReader(socket.getInputStream()));
-            outgoing.write(request);
+            outgoing.write(request+"\n");
             outgoing.flush();
 
             String reply = incoming.readLine();
