@@ -22,6 +22,9 @@ import static net.stechschulte.kilolani.Constants.meters_per_deg_lon;
 public class MapDatabaseHelper extends SQLiteOpenHelper {
     private static final String TAG = "MapDatabaseHelper";
 
+    // filter of what has been inserted in map
+    private static final ExpiringBloomFilter filter = new ExpiringBloomFilter(256, 8, 60*60*1000);
+
     // Database
     private static final String DATABASE_NAME = "KilolaniMap";
     private static final int DATABASE_VERSION = 2;
@@ -104,6 +107,10 @@ public class MapDatabaseHelper extends SQLiteOpenHelper {
         values.put(COL_TIME, position.getTime());
 
         long position_id = db.insert(TABLE_POSITIONS, null, values);
+
+        String filter_entry = String.format("%f %f %ld", position.getLatitude(),
+                position.getLongitude(), position.getTime());
+        filter.insert(filter_entry, position.getTime());
 
         String last_bssid = "";
         long ap_id = -1;
@@ -225,5 +232,9 @@ public class MapDatabaseHelper extends SQLiteOpenHelper {
         }
 
         return ret;
+    }
+
+    public long[] getFilter() {
+        return filter.getFilter();
     }
 }

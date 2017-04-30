@@ -38,8 +38,7 @@ public class RFScanService extends Service {
     private static final int DESIRED_NUM_PEERS = 3;
     private static final int DESIRED_NUM_POSITIONS = 10;
     private Location last_location = null;
-    private Position last_position = null;
-    private ArrayList<Position> positions;
+    private volatile ArrayList<Position> positions;
     private MapDatabaseHelper mapDB;
     private Context context;
 
@@ -91,21 +90,20 @@ public class RFScanService extends Service {
                 long currentTime = System.currentTimeMillis();
 
                 // if we have a good, recent location, we'll use it
-                /*if (last_location != null && (currentTime - last_location.getTime() < RESCAN_PERIOD)
-                        && last_location.getAccuracy() <= 3. ) { //}*/
-                if (last_location != null) {
+                if (last_location != null && (currentTime - last_location.getTime() < RESCAN_PERIOD)
+                        && last_location.getAccuracy() <= 3. ) {
                     new_position = new Position(last_location.getLatitude(), last_location.getLongitude(),
                             last_location.getAccuracy(), System.currentTimeMillis());
                     for (ScanResult r : results) {
                         new_position.addObservation(r.BSSID, r.level);
                     }
                     while (positions.size() >= MAX_POSITIONS) {
-                        positions.remove(0);
+                        positions.remove(MAX_POSITIONS);
                     }
                     mapDB.insertPosition(new_position);
                     TcpClient.startActionSharePositions(context, Arrays.asList(new_position));
                     sendUpdateToActivity("inserted new position");
-                    //positions.add(new_position);
+                    positions.add(0, new_position);
                 } else if (last_location==null) {
                     // TODO: relocalize using map
                 } else {
@@ -228,9 +226,12 @@ public class RFScanService extends Service {
 
             // check if we have enough positions in the area (if we know where we are to begin with)
             float radius = (float)(3*Constants.tau + 3*Constants.sigma_walk);
-            if (last_position!=null &&
-                    mapDB.countObservationsNear(last_position, radius)<DESIRED_NUM_POSITIONS) {
-                TcpClient.startActionRequestPositions(context, last_position, radius);
+            if (positions.size() > 0) {
+                Position last_position = positions.get(0);
+                if (last_position != null &&
+                        mapDB.countObservationsNear(last_position, radius) < DESIRED_NUM_POSITIONS) {
+                    TcpClient.startActionRequestPositions(context, last_position, radius);
+                }
             }
 
             scanHandler.postDelayed(this, RESCAN_PERIOD);

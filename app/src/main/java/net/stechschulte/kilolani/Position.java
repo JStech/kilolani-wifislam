@@ -40,6 +40,10 @@ public class Position {
     public long getTime() {
         return time;
     }
+
+    public String toHashString() {
+        return String.format("%f %f %ld", latitude, longitude, time);
+    }
     
     public HashMap<String, Integer> getWifiObservations() {
         return wifiObservations;

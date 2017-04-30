@@ -48,6 +48,7 @@ public class TcpClient extends IntentService {
 
     public static void startActionRequestPositions(Context context, Position position,
                                                    float radius) {
+        MapDatabaseHelper mapDB = new MapDatabaseHelper(context);
         try {
             Intent intent = new Intent(context, TcpClient.class);
             intent.setAction(ACTION_REQUEST);
@@ -56,6 +57,12 @@ public class TcpClient extends IntentService {
             request.put("lat", position.getLatitude());
             request.put("lon", position.getLongitude());
             request.put("radius", radius);
+            JSONArray js_filter = new JSONArray();
+            long[] filter = mapDB.getFilter();
+            for (int i=0; i<filter.length; i++) {
+                js_filter.put(filter[i]);
+            }
+            request.put("filter", js_filter);
             intent.putExtra(EXTRA_REQUEST, request.toString());
             Log.v(TAG, request.toString());
             context.startService(intent);
